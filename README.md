@@ -1,6 +1,6 @@
 <div align="center">
 
-# LocaMat
+# Kreli
 
 ### Plateforme de location de matériel professionnel au Maroc
 
