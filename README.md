@@ -35,7 +35,7 @@ LocaMat is a rental marketplace where users can browse professional equipment, r
 ## Project Structure
 
 ```text
-locamat/
+kreli/
 ├── frontend/                  # Next.js 14 App Router + TypeScript + Tailwind CSS
 │   └── src/
 │       ├── app/
