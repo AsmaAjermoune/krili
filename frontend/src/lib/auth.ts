@@ -1,12 +1,21 @@
-import type { AuthUser } from "./api";
+﻿import type { AuthUser } from "./api";
 
-const TOKEN_KEY = "kreli_token";
-const USER_KEY = "kreli_user";
+const TOKEN_KEY = "Kreli_token";
+const USER_KEY  = "Kreli_user";
 
-export function saveAuth(token: string, user: AuthUser) {
+export function saveAuth(token: string, user: AuthUser): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(USER_KEY, JSON.stringify(user));
+  // Cookie lets middleware.ts read the token for server-side route protection
+  document.cookie = `Kreli_token=${token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
+}
+
+export function clearAuth(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+  document.cookie = "Kreli_token=; path=/; max-age=0";
 }
 
 export function getToken(): string | null {
@@ -22,12 +31,6 @@ export function getStoredUser(): AuthUser | null {
   } catch {
     return null;
   }
-}
-
-export function clearAuth() {
-  if (typeof window === "undefined") return;
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
 }
 
 export function isLoggedIn(): boolean {

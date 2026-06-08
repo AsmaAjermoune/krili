@@ -23,6 +23,7 @@ export function useNotifications(token: string | null): NotificationState {
   const [loading, setLoading] = useState(false);
   const fetchedRef = useRef(false);
 
+  // Initial fetch
   useEffect(() => {
     if (!token || fetchedRef.current) return;
     fetchedRef.current = true;
@@ -37,6 +38,7 @@ export function useNotifications(token: string | null): NotificationState {
       .finally(() => setLoading(false));
   }, [token]);
 
+  // Socket listener for real-time notifications
   useEffect(() => {
     if (!token) return;
     const socket = getSocket(token);
@@ -54,6 +56,7 @@ export function useNotifications(token: string | null): NotificationState {
 
   const markRead = useCallback(
     async (id: string) => {
+      // Check if it was unread before updating
       const wasUnread = notifications.find((n) => n._id === id && !n.lu);
       await markNotificationRead(id);
       setNotifications((prev) =>

@@ -4,7 +4,9 @@ const nextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: "images.unsplash.com" },
       { protocol: "https", hostname: "randomuser.me" },
+      { protocol: "https", hostname: "api.dicebear.com" },
       { protocol: "http", hostname: "localhost" },
+      // Production backend hosting platforms
       { protocol: "https", hostname: "*.vercel.app" },
       { protocol: "https", hostname: "*.railway.app" },
       { protocol: "https", hostname: "*.onrender.com" },

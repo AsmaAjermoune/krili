@@ -1,249 +1,273 @@
 "use client";
 
-import { useEffect, useState, Suspense, lazy, memo, useMemo } from "react";
-import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
 import {
   getLocataireStats,
   getMyLocations,
-  getNotifications,
+  getFeaturedMateriels,
   getStatutLabel,
-  getStatutColor,
   formatPrice,
   getMaterielImage,
   type Location,
   type Materiel,
 } from "@/lib/api";
 import {
-  Clock,
-  Package,
-  CheckCircle,
-  Wallet,
-  ArrowRight,
-  Bell,
-  TrendingUp,
   Plus,
-  Sparkles,
+  Download,
+  ArrowRight,
+  Lock,
+  Package,
+  MessageSquare,
+  Wrench,
+  Zap,
+  Truck,
+  type LucideIcon,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Progress, ProgressTrack, ProgressIndicator } from "@/components/ui/progress";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
-
-const SpendingChart = lazy(() => import("@/components/dashboard/SpendingChart"));
-const StatusDonutChart = lazy(() => import("@/components/dashboard/StatusDonutChart"));
 
 interface Stats {
   locations: { enAttente: number; enCours: number; terminees: number; total: number };
   totalDepenses: number;
 }
 
-const STAGGER = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.08 } },
+const PRODUCT_ICONS: LucideIcon[] = [Truck, Zap, Package, Wrench];
+
+/* ──────────────────────────────────────────────────────────
+   Studio-lit "product shot" — CSS-only campaign plate used in
+   place of real photography. Replaces the flat AI-template look.
+   ────────────────────────────────────────────────────────── */
+type Tone = "studio" | "concrete" | "safety" | "onyx";
+
+const TONES: Record<Tone, { top: string; mid: string; light: string; glow: string; silhouette: string }> = {
+  studio:   { top: "#1A1A1B", mid: "#0E0E0F", light: "rgba(255,255,255,0.20)", glow: "rgba(255,77,0,0.25)", silhouette: "#FF4D00" },
+  concrete: { top: "#3A3A38", mid: "#1F1F1E", light: "rgba(255,240,210,0.12)", glow: "rgba(255,170,80,0.16)", silhouette: "#FF8A3D" },
+  safety:   { top: "#FFB347", mid: "#FF6A00", light: "rgba(255,255,200,0.45)", glow: "rgba(255,240,180,0.30)", silhouette: "#1A0E05" },
+  onyx:     { top: "#202024", mid: "#0A0A0B", light: "rgba(180,200,255,0.10)", glow: "rgba(120,140,200,0.20)", silhouette: "#E8ECF2" },
 };
 
-const CARD_ANIM = {
-  hidden: { opacity: 0, y: 16 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.4 } },
-};
-
-function useCountUp(target: number) {
-  const [val, setVal] = useState(0);
-  useEffect(() => {
-    if (!target) { setVal(0); return; }
-    let frame = 0;
-    const FRAMES = 50;
-    const tick = () => {
-      frame++;
-      const t = Math.min(frame / FRAMES, 1);
-      const eased = 1 - Math.pow(1 - t, 3);
-      setVal(Math.round(target * eased));
-      if (t < 1) requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  }, [target]);
-  return val;
-}
-
-const StatCard = memo(function StatCard({
-  label,
-  value,
-  total,
-  icon: Icon,
-  color,
-  bg,
-  isAmount,
-  tooltip,
+function ProductShot({
+  tone = "studio",
+  Icon,
+  className,
+  iconSize = 96,
 }: {
-  label: string;
-  value: number;
-  total?: number;
-  icon: React.ElementType;
-  color: string;
-  bg: string;
-  isAmount?: boolean;
-  tooltip?: string;
+  tone?: Tone;
+  Icon: LucideIcon;
+  className?: string;
+  iconSize?: number;
 }) {
-  const animated = useCountUp(value);
-  const display = isAmount
-    ? `${new Intl.NumberFormat("fr-MA", { maximumFractionDigits: 0 }).format(animated)} MAD`
-    : String(animated);
-  const pct = total && total > 0 ? Math.round((value / total) * 100) : 0;
-
+  const t = TONES[tone];
   return (
-    <motion.div variants={CARD_ANIM}>
-      <Tooltip>
-        <TooltipTrigger
-          render={<div className="group cursor-default rounded-2xl bg-white p-5 shadow-sm border border-slate-100/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200" />}
-        >
-            <div className="mb-4 flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</p>
-              <div className="rounded-xl p-2" style={{ background: bg }}>
-                <Icon className="h-5 w-5" style={{ color }} />
-              </div>
-            </div>
-            <p
-              className="text-2xl font-black tracking-tight"
-              style={{ color: isAmount ? "#ff6700" : "#0f172a" }}
-            >
-              {display}
-            </p>
-            {isAmount ? (
-              <p className="mt-1.5 flex items-center gap-1 text-[11px] font-medium text-emerald-500">
-                <TrendingUp className="h-3 w-3" />
-                Total cumulé
-              </p>
-            ) : (
-              total !== undefined && (
-                <div className="mt-3">
-                  <Progress value={pct} className="gap-1">
-                    <ProgressTrack className="h-1.5 bg-slate-100">
-                      <ProgressIndicator
-                        className="transition-all duration-700"
-                        style={{ backgroundColor: color, width: `${pct}%` }}
-                      />
-                    </ProgressTrack>
-                  </Progress>
-                  <p className="mt-1 text-[10px] text-slate-400">{pct}% du total</p>
-                </div>
-              )
-            )}
-        </TooltipTrigger>
-        {tooltip && <TooltipContent>{tooltip}</TooltipContent>}
-      </Tooltip>
-    </motion.div>
+    <div
+      className={`relative isolate overflow-hidden ${className ?? ""}`}
+      style={{
+        background: `
+          radial-gradient(ellipse 70% 55% at 50% 18%, ${t.light}, transparent 65%),
+          radial-gradient(ellipse 90% 70% at 50% 110%, ${t.glow}, transparent 70%),
+          linear-gradient(180deg, ${t.top} 0%, ${t.mid} 100%)
+        `,
+      }}
+    >
+      <div className="lm-grain" />
+      <div className="absolute inset-0 grid place-items-center">
+        <Icon
+          size={iconSize}
+          strokeWidth={0.8}
+          style={{
+            color: t.silhouette,
+            transform: "rotate(-6deg)",
+            opacity: 0.96,
+            filter: `drop-shadow(0 18px 26px rgba(0,0,0,0.45)) drop-shadow(0 0 30px ${t.glow})`,
+          }}
+        />
+      </div>
+    </div>
   );
-});
+}
 
-const LocationItem = memo(function LocationItem({ loc }: { loc: Location }) {
+/* ──────────────────────────────────────────────────────────
+   Status pill — quiet tinted tag, mono uppercase.
+   ────────────────────────────────────────────────────────── */
+function StatusTag({ statut }: { statut: Location["statut"] }) {
+  const map: Record<Location["statut"], { bg: string; fg: string }> = {
+    en_attente: { bg: "var(--lm-warn-soft)", fg: "var(--lm-warn)" },
+    acceptee:   { bg: "var(--lm-ok-soft)", fg: "var(--lm-ok)" },
+    en_cours:   { bg: "var(--lm-ok-soft)", fg: "var(--lm-ok)" },
+    terminee:   { bg: "var(--lm-bone)", fg: "var(--lm-char)" },
+    en_retard:  { bg: "var(--lm-signal)", fg: "var(--lm-paper)" },
+    en_litige:  { bg: "#F6D6D2", fg: "#B0241A" },
+    refusee:    { bg: "#F6D6D2", fg: "#B0241A" },
+    annulee:    { bg: "var(--lm-bone)", fg: "var(--lm-mid)" },
+  };
+  const c = map[statut];
+  return (
+    <span
+      className="lm-mono inline-flex items-center rounded-[6px] px-2 py-1 text-[10.5px] font-semibold uppercase tracking-[0.04em]"
+      style={{ background: c.bg, color: c.fg }}
+    >
+      {getStatutLabel(statut)}
+    </span>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────
+   Locations table row
+   ────────────────────────────────────────────────────────── */
+function LocationRow({ loc, index }: { loc: Location; index: number }) {
   const img = getMaterielImage(loc.materielId as unknown as Materiel);
+  const start = new Date(loc.dateDebut).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+  const end = new Date(loc.dateFinPrevue).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+  const Icon = PRODUCT_ICONS[index % PRODUCT_ICONS.length];
+  const tone: Tone = (["studio", "safety", "concrete", "onyx"] as Tone[])[index % 4];
+  const ref = `LOC-${loc._id.slice(-5).toUpperCase()}`;
+
   return (
-    <div className="flex items-center gap-4 rounded-xl border border-slate-100 p-4 hover:border-slate-200 hover:bg-slate-50/50 transition-all">
-      <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-slate-100">
+    <div
+      className="grid items-center gap-5 px-7 py-5"
+      style={{
+        gridTemplateColumns: "64px 1.6fr 1.1fr 1fr auto",
+        borderTop: index === 0 ? "none" : "1px solid var(--lm-line)",
+      }}
+    >
+      {/* Thumb */}
+      <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-[12px]">
         {img ? (
-          <Image src={img} alt={loc.materielId.nom} fill className="object-cover" />
+          <Image src={img} alt={loc.materielId.nom} fill className="object-cover" sizes="64px" />
         ) : (
-          <div className="flex h-full items-center justify-center">
-            <Package className="h-6 w-6 text-slate-300" />
-          </div>
+          <ProductShot tone={tone} Icon={Icon} className="h-16 w-16" iconSize={40} />
         )}
       </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-[#0f172a]">{loc.materielId.nom}</p>
-        <p className="mt-0.5 text-xs text-slate-400">
-          {new Date(loc.dateDebut).toLocaleDateString("fr-MA", { day: "numeric", month: "short" })}
-          {" → "}
-          {new Date(loc.dateFinPrevue).toLocaleDateString("fr-MA", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-          })}
-        </p>
-        {loc.materielId.localisation && (
-          <p className="mt-0.5 truncate text-xs text-slate-400">{loc.materielId.localisation}</p>
-        )}
-      </div>
-      <div className="shrink-0 space-y-2 text-right">
-        <span
-          className={cn(
-            "inline-block rounded-full px-2.5 py-1 text-[11px] font-semibold",
-            getStatutColor(loc.statut)
-          )}
+
+      {/* Name + ref */}
+      <div className="min-w-0">
+        <p
+          className="truncate text-[15px] font-bold"
+          style={{ color: "var(--lm-ink)", letterSpacing: "-0.012em" }}
         >
-          {getStatutLabel(loc.statut)}
-        </span>
-        <p className="text-sm font-bold text-[#ff6700]">{formatPrice(loc.montantLocation)}</p>
+          {loc.materielId.nom}
+        </p>
+        <p className="lm-mono mt-1 text-[11px]" style={{ color: "var(--lm-mid)" }}>
+          {ref}
+        </p>
       </div>
+
+      {/* Period */}
+      <div>
+        <p className="text-[13.5px] font-semibold" style={{ color: "var(--lm-ink)" }}>
+          {start} → {end}
+        </p>
+        <p className="lm-mono mt-1 text-[11px]" style={{ color: "var(--lm-mid)" }}>
+          {loc.nbJours} JOUR{loc.nbJours > 1 ? "S" : ""}
+        </p>
+      </div>
+
+      {/* Status + amount */}
+      <div className="flex flex-col items-start gap-2">
+        <StatusTag statut={loc.statut} />
+        <p className="lm-mono text-[11.5px]" style={{ color: "var(--lm-mid)" }}>
+          {formatPrice(loc.montantLocation)}
+        </p>
+      </div>
+
+      {/* Action */}
+      <Link
+        href={`/dashboard/locataire/locations/${loc._id}`}
+        className="inline-flex items-center gap-1.5 rounded-full border px-3.5 text-[12.5px] font-medium transition-colors"
+        style={{
+          height: 36,
+          borderColor: "var(--lm-line-strong)",
+          color: "var(--lm-ink)",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = "var(--lm-hover)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = "transparent";
+        }}
+      >
+        Détails <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} />
+      </Link>
     </div>
   );
-});
+}
 
-function DashboardSkeleton() {
+/* ──────────────────────────────────────────────────────────
+   Recommendation tile
+   ────────────────────────────────────────────────────────── */
+function RecoTile({ item, index }: { item: Materiel; index: number }) {
+  const img = getMaterielImage(item);
+  const Icon = PRODUCT_ICONS[index % PRODUCT_ICONS.length];
+  const tone: Tone = (["studio", "safety", "concrete", "onyx"] as Tone[])[index % 4];
+  const distance = item.localisation ? item.localisation.split(",")[0] : "Maroc";
+
   return (
-    <div className="space-y-6 px-5 py-6 lg:px-8 lg:py-8">
-      <div className="flex items-start justify-between">
-        <div className="space-y-2">
-          <Skeleton className="h-8 w-56 rounded-xl" />
-          <Skeleton className="h-4 w-40 rounded-lg" />
+    <Link
+      href={`/materiel/${item._id}`}
+      className="group overflow-hidden rounded-2xl transition-transform"
+      style={{
+        background: "var(--lm-paper)",
+        border: "1px solid var(--lm-line)",
+      }}
+    >
+      <div className="relative aspect-[16/10] overflow-hidden">
+        {img ? (
+          <Image src={img} alt={item.nom} fill className="object-cover transition-transform duration-300 group-hover:scale-105" sizes="320px" />
+        ) : (
+          <ProductShot tone={tone} Icon={Icon} className="h-full w-full" iconSize={120} />
+        )}
+        <span
+          className="lm-mono absolute right-3 top-3 inline-flex items-center rounded-[6px] px-2 py-1 text-[10px] uppercase tracking-[0.05em]"
+          style={{ background: "rgba(255,255,255,0.92)", color: "var(--lm-ink)" }}
+        >
+          {item.disponible === false ? "Réservé" : "Dispo"}
+        </span>
+      </div>
+      <div className="flex items-end justify-between gap-3 px-4 py-4">
+        <div className="min-w-0">
+          <p
+            className="truncate text-[14px] font-bold"
+            style={{ color: "var(--lm-ink)", letterSpacing: "-0.012em" }}
+          >
+            {item.nom}
+          </p>
+          <p className="lm-mono mt-1 truncate text-[11px]" style={{ color: "var(--lm-mid)" }}>
+            {distance}
+          </p>
         </div>
-        <Skeleton className="h-10 w-36 rounded-xl" />
+        <div className="lm-mega shrink-0 text-[24px]" style={{ color: "var(--lm-ink)" }}>
+          {item.prixParJour}
+          <span className="lm-mono ml-1 text-[11px] font-medium" style={{ color: "var(--lm-mid)" }}>
+            DH
+          </span>
+        </div>
       </div>
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {[...Array(4)].map((_, i) => (
-          <Skeleton key={i} className="h-32 rounded-2xl" />
-        ))}
-      </div>
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-        <Skeleton className="h-64 rounded-2xl lg:col-span-3" />
-        <Skeleton className="h-64 rounded-2xl lg:col-span-2" />
-      </div>
-      <Skeleton className="h-64 rounded-2xl" />
-    </div>
+    </Link>
   );
 }
 
-function getGreeting() {
-  const h = new Date().getHours();
-  if (h < 12) return "Bonjour";
-  if (h < 18) return "Bon après-midi";
-  return "Bonsoir";
-}
-
-const STATUS_TABS = [
-  { key: "", label: "Récentes" },
-  { key: "en_attente", label: "En attente" },
-  { key: "acceptee", label: "Acceptée" },
-  { key: "en_cours", label: "En cours" },
-  { key: "terminee", label: "Terminée" },
-];
-
+/* ──────────────────────────────────────────────────────────
+   Page
+   ────────────────────────────────────────────────────────── */
 export default function LocataireDashboardPage() {
   const { user } = useAuth();
   const [stats, setStats] = useState<Stats | null>(null);
   const [recent, setRecent] = useState<Location[]>([]);
-  const [allLocations, setAllLocations] = useState<Location[]>([]);
-  const [unread, setUnread] = useState(0);
+  const [recommended, setRecommended] = useState<Materiel[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("");
 
   useEffect(() => {
     async function load() {
       try {
-        const [statsData, allData] = await Promise.all([
+        const [statsData, locsData, recsData] = await Promise.all([
           getLocataireStats(),
-          getMyLocations({ limit: 50 }),
+          getMyLocations({ limit: 4 }),
+          getFeaturedMateriels(3),
         ]);
         setStats(statsData);
-        setRecent(allData.data.slice(0, 5));
-        setAllLocations(allData.data);
-        getNotifications().then((r) => setUnread(r.unreadCount)).catch(() => {});
-      } catch {
-        // silent
+        setRecent(locsData.data);
+        setRecommended(recsData);
       } finally {
         setLoading(false);
       }
@@ -251,231 +275,536 @@ export default function LocataireDashboardPage() {
     load();
   }, []);
 
-  const displayed = useMemo(
-    () => (activeTab ? allLocations.filter((l) => l.statut === activeTab) : recent),
-    [activeTab, allLocations, recent]
-  );
+  const firstName = user?.nom?.split(" ")[0] ?? "";
+  const today = new Date().toLocaleDateString("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).toUpperCase();
 
-  if (loading) return <DashboardSkeleton />;
+  const nextDue = recent.find((l) => l.statut === "en_cours" || l.statut === "acceptee");
+  const nextDueDate = nextDue ? new Date(nextDue.dateFinPrevue) : null;
 
-  const totalLocations = stats?.locations.total ?? 0;
+  const pendingCount = stats?.locations.enAttente ?? 0;
+  const greetingHook =
+    pendingCount > 0
+      ? `${pendingCount} action${pendingCount > 1 ? "s vous attendent" : " vous attend"}.`
+      : "Tout est en ordre.";
 
-  const statCards = stats
-    ? [
-        {
-          label: "En attente",
-          value: stats.locations.enAttente,
-          total: totalLocations,
-          icon: Clock,
-          color: "#f59e0b",
-          bg: "#fef9c3",
-          tooltip: "Demandes en attente de confirmation",
-        },
-        {
-          label: "En cours",
-          value: stats.locations.enCours,
-          total: totalLocations,
-          icon: Package,
-          color: "#3b82f6",
-          bg: "#eff6ff",
-          tooltip: "Locations actuellement actives",
-        },
-        {
-          label: "Terminées",
-          value: stats.locations.terminees,
-          total: totalLocations,
-          icon: CheckCircle,
-          color: "#22c55e",
-          bg: "#f0fdf4",
-          tooltip: "Locations complétées avec succès",
-        },
-        {
-          label: "Total dépensé",
-          value: stats.totalDepenses,
-          icon: Wallet,
-          color: "#004e98",
-          bg: "#eff6ff",
-          isAmount: true,
-          tooltip: "Montant total de toutes vos locations",
-        },
-      ]
-    : [];
+  // ── Loading skeleton ───────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="p-10 lg:p-12">
+        <div className="h-7 w-48 animate-pulse rounded" style={{ background: "var(--lm-bone-2)" }} />
+        <div className="mt-4 h-20 w-2/3 animate-pulse rounded" style={{ background: "var(--lm-bone-2)" }} />
+        <div
+          className="mt-10 grid grid-cols-4 overflow-hidden rounded-3xl"
+          style={{ border: "1px solid var(--lm-line)" }}
+        >
+          {[0, 1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="h-36 animate-pulse"
+              style={{
+                background: "var(--lm-bone)",
+                borderRight: i < 3 ? "1px solid var(--lm-line)" : "none",
+              }}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const kpis = [
+    {
+      label: "En attente",
+      value: stats?.locations.enAttente ?? 0,
+      sub: pendingCount > 0 ? "Action requise" : "Rien à valider",
+      signal: pendingCount > 0,
+    },
+    {
+      label: "En cours",
+      value: stats?.locations.enCours ?? 0,
+      sub: (stats?.locations.enCours ?? 0) > 0 ? "Locations actives" : "Aucune en cours",
+      signal: false,
+      tone: "ok" as const,
+    },
+    {
+      label: "Terminées",
+      value: stats?.locations.terminees ?? 0,
+      sub: "Historique complet",
+      signal: false,
+    },
+    {
+      label: "Dépensé",
+      value: formatPrice(stats?.totalDepenses ?? 0).replace(/\s?DH$/, ""),
+      sub: `${stats?.locations.total ?? 0} location${(stats?.locations.total ?? 0) > 1 ? "s" : ""} · MAD`,
+      signal: false,
+      isAmount: true,
+    },
+  ];
 
   return (
-    <div className="space-y-6 px-5 py-6 lg:px-8 lg:py-8">
-
-      {/* Page header */}
-      <motion.div
-        initial={{ opacity: 0, y: -8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="flex items-start justify-between gap-4"
-      >
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-black text-[#0f172a] lg:text-3xl">
-              {getGreeting()},{" "}
-              <span className="text-[#ff6700]">{user?.nom?.split(" ")[0]}</span> !
-            </h1>
-            <Sparkles className="hidden h-5 w-5 text-yellow-400 lg:block" />
-          </div>
-          <p className="mt-1 text-sm text-slate-400">
-            {new Date().toLocaleDateString("fr-MA", {
-              weekday: "long",
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-            })}
-          </p>
+    <div className="px-6 py-10 lg:px-12 lg:py-12" style={{ background: "var(--lm-paper)" }}>
+      {/* ── Header ─────────────────────────────────────────── */}
+      <header className="flex flex-wrap items-start justify-between gap-6">
+        <div className="min-w-0 flex-1">
+          <p className="lm-eyebrow mb-3.5">{today}</p>
+          <h1
+            className="lm-display"
+            style={{
+              fontSize: "clamp(40px, 5.4vw, 64px)",
+              fontWeight: 900,
+              letterSpacing: "-0.055em",
+              lineHeight: 0.95,
+              color: "var(--lm-ink)",
+            }}
+          >
+            Bonjour, {firstName}.
+            <br />
+            <span style={{ color: "var(--lm-signal)" }}>{greetingHook}</span>
+          </h1>
         </div>
-        <div className="flex shrink-0 items-center gap-3">
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Link
-                  href="/dashboard/locataire"
-                  className="relative hidden rounded-xl border border-slate-200 bg-white p-2.5 text-slate-500 shadow-sm hover:border-slate-300 hover:text-[#0f172a] transition-colors lg:flex"
-                />
-              }
+        <div className="flex shrink-0 items-center gap-2.5">
+          <button
+            onClick={() => window.print()}
+            className="hidden items-center gap-2 rounded-full border bg-transparent px-4 text-[13px] font-medium transition-colors sm:inline-flex"
+            style={{
+              height: 40,
+              borderColor: "var(--lm-line-strong)",
+              color: "var(--lm-ink)",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "var(--lm-hover)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+            }}
+          >
+            <Download className="h-3.5 w-3.5" strokeWidth={2} /> Export
+          </button>
+          <Link
+            href="/catalogue"
+            className="inline-flex items-center gap-2 rounded-full px-5 text-[13px] font-medium transition-colors"
+            style={{
+              height: 40,
+              background: "var(--lm-signal)",
+              color: "var(--lm-paper)",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "var(--lm-signal-2)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "var(--lm-signal)";
+            }}
+          >
+            <Plus className="h-3.5 w-3.5" strokeWidth={2.5} /> Nouvelle location
+          </Link>
+        </div>
+      </header>
+
+      {/* ── KPI strip ──────────────────────────────────────── */}
+      <div
+        className="mt-10 grid grid-cols-2 overflow-hidden rounded-[28px] lg:grid-cols-4"
+        style={{
+          border: "1px solid var(--lm-line)",
+          background: "var(--lm-paper)",
+        }}
+      >
+        {kpis.map((k, i) => (
+          <div
+            key={k.label}
+            className="px-7 py-7"
+            style={{
+              borderRight:
+                i % 2 === 0 ? "1px solid var(--lm-line)" : "none",
+              borderTop: i >= 2 ? "1px solid var(--lm-line)" : "none",
+            }}
+          >
+            <p className="lm-eyebrow">{k.label}</p>
+            <p
+              className="lm-mega mt-3"
+              style={{
+                fontSize: k.isAmount ? 52 : 68,
+                color: k.signal ? "var(--lm-signal)" : "var(--lm-ink)",
+              }}
             >
-              <Bell className="h-5 w-5" />
-              {unread > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#ff6700] text-[9px] font-bold text-white">
-                  {unread > 9 ? "9+" : unread}
+              {k.value}
+              {k.isAmount && (
+                <span
+                  className="lm-mono ml-1.5 align-baseline text-[14px] font-medium"
+                  style={{ color: "var(--lm-mid)" }}
+                >
+                  MAD
                 </span>
               )}
-            </TooltipTrigger>
-            <TooltipContent>
-              {unread > 0 ? `${unread} notification${unread > 1 ? "s" : ""} non lue${unread > 1 ? "s" : ""}` : "Notifications"}
-            </TooltipContent>
-          </Tooltip>
-          <Link href="/catalogue">
-            <Button className="rounded-xl bg-[#ff6700] px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-[#ff6700]/25 hover:bg-[#e55f00] transition-all">
-              <Plus className="mr-1.5 h-4 w-4" />
-              Nouvelle location
-            </Button>
-          </Link>
-        </div>
-      </motion.div>
-
-      {/* Stat cards */}
-      <motion.div
-        variants={STAGGER}
-        initial="hidden"
-        animate="show"
-        className="grid grid-cols-2 gap-4 lg:grid-cols-4"
-      >
-        {statCards.map((card) => (
-          <StatCard key={card.label} {...card} />
+            </p>
+            <p
+              className="mt-2.5 text-[12.5px]"
+              style={{
+                color: k.signal
+                  ? "var(--lm-signal)"
+                  : k.tone === "ok"
+                  ? "var(--lm-ok)"
+                  : "var(--lm-mid)",
+              }}
+            >
+              {k.sub}
+            </p>
+          </div>
         ))}
-      </motion.div>
-
-      {/* Charts row */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25, duration: 0.5 }}
-          className="rounded-2xl bg-white p-5 shadow-sm border border-slate-100/80 lg:col-span-3"
-        >
-          <div className="mb-5 flex items-center justify-between">
-            <div>
-              <h2 className="font-bold text-[#0f172a]">Évolution des dépenses</h2>
-              <p className="text-xs text-slate-400">6 derniers mois</p>
-            </div>
-            <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-semibold text-[#ff6700]">
-              MAD
-            </span>
-          </div>
-          <div className="h-48">
-            <Suspense fallback={<Skeleton className="h-full w-full rounded-xl" />}>
-              <SpendingChart locations={allLocations} />
-            </Suspense>
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, duration: 0.5 }}
-          className="rounded-2xl bg-white p-5 shadow-sm border border-slate-100/80 lg:col-span-2"
-        >
-          <div className="mb-2">
-            <h2 className="font-bold text-[#0f172a]">Statut des locations</h2>
-            <p className="text-xs text-slate-400">Répartition globale</p>
-          </div>
-          <div className="h-56">
-            <Suspense fallback={<Skeleton className="h-full w-full rounded-xl" />}>
-              {stats && (
-                <StatusDonutChart
-                  enAttente={stats.locations.enAttente}
-                  enCours={stats.locations.enCours}
-                  terminees={stats.locations.terminees}
-                />
-              )}
-            </Suspense>
-          </div>
-        </motion.div>
       </div>
 
-      {/* Recent locations */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.35, duration: 0.5 }}
-        className="rounded-2xl bg-white p-5 shadow-sm border border-slate-100/80"
-      >
-        <div className="mb-5 flex items-center justify-between">
+      {/* ── Main grid ──────────────────────────────────────── */}
+      <div className="mt-7 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
+        {/* Locations en cours */}
+        <section
+          className="overflow-hidden rounded-[28px]"
+          style={{ background: "var(--lm-paper)", border: "1px solid var(--lm-line)" }}
+        >
+          <header
+            className="flex items-center justify-between px-7 py-6"
+            style={{ borderBottom: "1px solid var(--lm-line)" }}
+          >
+            <div>
+              <h2
+                className="lm-display"
+                style={{
+                  fontSize: 22,
+                  fontWeight: 800,
+                  letterSpacing: "-0.03em",
+                  color: "var(--lm-ink)",
+                }}
+              >
+                Mes dernières locations
+              </h2>
+              <p className="lm-mono mt-1.5 text-[11px]" style={{ color: "var(--lm-mid)" }}>
+                {stats?.locations.total ?? 0} AU TOTAL · {stats?.locations.enCours ?? 0} ACTIVE
+                {(stats?.locations.enCours ?? 0) > 1 ? "S" : ""}
+              </p>
+            </div>
+            <Link
+              href="/dashboard/locataire/locations"
+              className="inline-flex items-center gap-1.5 text-[13px] font-medium"
+              style={{ color: "var(--lm-ink)" }}
+            >
+              Voir tout <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} />
+            </Link>
+          </header>
+
+          {recent.length === 0 ? (
+            <div className="px-7 py-16 text-center">
+              <div
+                className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl"
+                style={{ background: "var(--lm-bone)", color: "var(--lm-muted)" }}
+              >
+                <Package className="h-7 w-7" strokeWidth={1.5} />
+              </div>
+              <p className="text-[14px]" style={{ color: "var(--lm-mid)" }}>
+                Aucune location pour le moment.
+              </p>
+              <Link
+                href="/catalogue"
+                className="mt-5 inline-flex items-center gap-2 rounded-full px-5 text-[13px] font-medium"
+                style={{ height: 40, background: "var(--lm-ink)", color: "var(--lm-paper)" }}
+              >
+                <Plus className="h-3.5 w-3.5" strokeWidth={2.5} /> Parcourir le catalogue
+              </Link>
+            </div>
+          ) : (
+            <div>
+              {recent.map((loc, i) => (
+                <LocationRow key={loc._id} loc={loc} index={i} />
+              ))}
+            </div>
+          )}
+
+          {recent.length > 0 && (
+            <footer
+              className="flex items-center justify-between px-7 py-4"
+              style={{
+                background: "var(--lm-bone)",
+                borderTop: "1px solid var(--lm-line)",
+              }}
+            >
+              <p className="lm-mono text-[11px]" style={{ color: "var(--lm-mid)" }}>
+                {recent.length} AFFICHÉE{recent.length > 1 ? "S" : ""} · {stats?.locations.total ?? 0} AU TOTAL
+              </p>
+              <Link
+                href="/dashboard/locataire/locations"
+                className="inline-flex items-center gap-1.5 text-[13px] font-bold"
+                style={{ color: "var(--lm-signal)" }}
+              >
+                Historique complet <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
+              </Link>
+            </footer>
+          )}
+        </section>
+
+        {/* Right rail */}
+        <aside className="flex flex-col gap-4">
+          {/* Next return — dark dramatic tile */}
+          <div
+            className="relative overflow-hidden rounded-[28px] p-6"
+            style={{ background: "var(--lm-ink)", color: "var(--lm-paper)" }}
+          >
+            <div
+              aria-hidden
+              className="pointer-events-none absolute h-[280px] w-[280px] rounded-full"
+              style={{
+                top: "-40%",
+                right: "-20%",
+                background: "radial-gradient(circle, var(--lm-signal) 0%, transparent 65%)",
+                opacity: 0.35,
+                filter: "blur(30px)",
+              }}
+            />
+            <div className="relative">
+              <p
+                className="lm-eyebrow mb-3.5"
+                style={{ color: "var(--lm-signal)" }}
+              >
+                Prochaine restitution
+              </p>
+              {nextDue && nextDueDate ? (
+                <>
+                  <p className="lm-mega" style={{ fontSize: 76, color: "var(--lm-paper)" }}>
+                    {nextDueDate.getDate()}
+                    <span
+                      className="lm-mono ml-1.5 align-baseline text-[20px] font-medium"
+                      style={{ color: "rgba(255,255,255,0.5)" }}
+                    >
+                      {nextDueDate.toLocaleDateString("fr-FR", { month: "short" }).toUpperCase()}
+                    </span>
+                  </p>
+                  <p className="mt-3 text-[14.5px] font-semibold" style={{ color: "var(--lm-paper)" }}>
+                    {nextDue.materielId.nom}
+                  </p>
+                  <p
+                    className="lm-mono mt-1 text-[11px]"
+                    style={{ color: "rgba(255,255,255,0.6)" }}
+                  >
+                    {Math.max(0, Math.ceil((nextDueDate.getTime() - Date.now()) / 86400000))}{" "}
+                    JOUR(S) RESTANT(S)
+                  </p>
+                  <div className="mt-5 flex gap-2">
+                    <Link
+                      href={`/dashboard/locataire/locations/${nextDue._id}`}
+                      className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full px-4 text-[12.5px] font-medium transition-colors"
+                      style={{ height: 36, background: "var(--lm-signal)", color: "var(--lm-paper)" }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = "var(--lm-signal-2)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "var(--lm-signal)";
+                      }}
+                    >
+                      Voir les détails
+                    </Link>
+                    <Link
+                      href="/dashboard/locataire/messages"
+                      className="grid place-items-center rounded-full border transition-colors"
+                      style={{
+                        height: 36,
+                        width: 36,
+                        borderColor: "rgba(255,255,255,0.24)",
+                        color: "var(--lm-paper)",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = "rgba(255,255,255,0.06)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "transparent";
+                      }}
+                      aria-label="Message au propriétaire"
+                    >
+                      <MessageSquare className="h-3.5 w-3.5" strokeWidth={1.75} />
+                    </Link>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="lm-mega" style={{ fontSize: 72, color: "var(--lm-paper)" }}>
+                    0
+                  </p>
+                  <p className="mt-3 text-[14.5px] font-semibold" style={{ color: "var(--lm-paper)" }}>
+                    Aucune restitution
+                  </p>
+                  <p
+                    className="lm-mono mt-1 text-[11px]"
+                    style={{ color: "rgba(255,255,255,0.6)" }}
+                  >
+                    Rien de prévu cette semaine
+                  </p>
+                  <Link
+                    href="/catalogue"
+                    className="mt-5 inline-flex items-center justify-center gap-1.5 rounded-full px-5 text-[12.5px] font-medium"
+                    style={{ height: 36, background: "var(--lm-signal)", color: "var(--lm-paper)" }}
+                  >
+                    Explorer le catalogue <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
+                  </Link>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Wallet / cautions */}
+          <div
+            className="rounded-[28px] p-6"
+            style={{ background: "var(--lm-paper)", border: "1px solid var(--lm-line)" }}
+          >
+            <div className="mb-3.5 flex items-center justify-between">
+              <p className="lm-eyebrow">Total dépensé</p>
+              <Lock className="h-[15px] w-[15px]" style={{ color: "var(--lm-signal)" }} strokeWidth={1.75} />
+            </div>
+            <p className="lm-mega" style={{ fontSize: 50, color: "var(--lm-ink)" }}>
+              {formatPrice(stats?.totalDepenses ?? 0).replace(/\s?DH$/, "")}
+              <span
+                className="lm-mono ml-1.5 align-baseline text-[14px] font-medium"
+                style={{ color: "var(--lm-mid)" }}
+              >
+                MAD
+              </span>
+            </p>
+            <p className="lm-mono mt-2 text-[11px]" style={{ color: "var(--lm-mid)" }}>
+              {stats?.locations.total ?? 0} LOCATION{(stats?.locations.total ?? 0) > 1 ? "S" : ""} ·
+              CUMUL
+            </p>
+            <div className="mt-5 flex h-[6px] gap-1 overflow-hidden rounded-full">
+              <div className="flex-[3]" style={{ background: "var(--lm-signal)" }} />
+              <div className="flex-[5]" style={{ background: "var(--lm-signal-soft)" }} />
+              <div className="flex-[2]" style={{ background: "var(--lm-bone-2)" }} />
+            </div>
+          </div>
+
+          {/* Activity feed */}
+          <div
+            className="rounded-[28px] p-6"
+            style={{ background: "var(--lm-paper)", border: "1px solid var(--lm-line)" }}
+          >
+            <p className="lm-eyebrow mb-5">Activité</p>
+            <div className="flex flex-col gap-4">
+              {recent.slice(0, 3).map((r) => {
+                const when = new Date(r.createdAt);
+                const minutesAgo = Math.floor((Date.now() - when.getTime()) / 60000);
+                const label =
+                  minutesAgo < 60
+                    ? `${minutesAgo}min`
+                    : minutesAgo < 1440
+                    ? `${Math.floor(minutesAgo / 60)}h`
+                    : `${Math.floor(minutesAgo / 1440)}j`;
+                const dot =
+                  r.statut === "en_cours" || r.statut === "acceptee"
+                    ? "var(--lm-ok)"
+                    : r.statut === "en_attente"
+                    ? "var(--lm-signal)"
+                    : "var(--lm-muted)";
+                return (
+                  <div key={r._id} className="flex items-start gap-3">
+                    <span
+                      className="mt-[7px] block h-2 w-2 shrink-0 rounded-full"
+                      style={{ background: dot }}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className="truncate text-[13.5px] font-semibold"
+                        style={{ color: "var(--lm-ink)" }}
+                      >
+                        {r.materielId.nom}
+                      </p>
+                      <p
+                        className="truncate text-[12px]"
+                        style={{ color: "var(--lm-mid)" }}
+                      >
+                        {getStatutLabel(r.statut)} · {formatPrice(r.montantLocation)}
+                      </p>
+                    </div>
+                    <span
+                      className="lm-mono shrink-0 text-[11px]"
+                      style={{ color: "var(--lm-mid)" }}
+                    >
+                      {label}
+                    </span>
+                  </div>
+                );
+              })}
+              {recent.length === 0 && (
+                <p className="text-[13px]" style={{ color: "var(--lm-mid)" }}>
+                  Pas encore d&apos;activité.
+                </p>
+              )}
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      {/* ── Recommendations ────────────────────────────────── */}
+      <section className="mt-10">
+        <header className="mb-6 flex items-end justify-between gap-6">
           <div>
-            <h2 className="font-bold text-[#0f172a]">Mes locations</h2>
-            <p className="text-xs text-slate-400">{stats?.locations.total ?? 0} au total</p>
+            <h2
+              className="lm-display"
+              style={{
+                fontSize: "clamp(26px, 3vw, 32px)",
+                fontWeight: 900,
+                letterSpacing: "-0.045em",
+                color: "var(--lm-ink)",
+              }}
+            >
+              Pour votre prochain chantier.
+            </h2>
+            <p className="mt-2 text-[14px]" style={{ color: "var(--lm-mid)" }}>
+              Sélection d&apos;équipements recommandés près de vous.
+            </p>
           </div>
           <Link
-            href="/dashboard/locataire/locations"
-            className="flex items-center gap-1 text-xs font-semibold text-[#004e98] hover:underline"
+            href="/catalogue"
+            className="inline-flex items-center gap-1.5 text-[14px] font-bold"
+            style={{ color: "var(--lm-signal)" }}
           >
-            Voir tout <ArrowRight className="h-3.5 w-3.5" />
+            Catalogue <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
+          </Link>
+        </header>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {recommended.map((item, i) => (
+            <RecoTile key={item._id} item={item} index={i} />
+          ))}
+          <Link
+            href="/catalogue"
+            className="flex flex-col items-center justify-center gap-3 rounded-2xl p-6 transition-colors"
+            style={{
+              border: "1px dashed var(--lm-line-strong)",
+              color: "var(--lm-mid)",
+              minHeight: 200,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "var(--lm-hover)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+            }}
+          >
+            <div
+              className="grid h-12 w-12 place-items-center rounded-full"
+              style={{ background: "var(--lm-ink)", color: "var(--lm-paper)" }}
+            >
+              <Plus className="h-5 w-5" strokeWidth={2.5} />
+            </div>
+            <p
+              className="mt-1 text-[14px] font-bold"
+              style={{ color: "var(--lm-ink)", letterSpacing: "-0.012em" }}
+            >
+              Explorer le catalogue
+            </p>
+            <p className="lm-mono text-[10.5px]" style={{ color: "var(--lm-mid)" }}>
+              5 247 RÉFÉRENCES
+            </p>
           </Link>
         </div>
-
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-4">
-          <TabsList className="h-auto gap-1.5 bg-slate-100 p-1 rounded-xl">
-            {STATUS_TABS.map((tab) => (
-              <TabsTrigger
-                key={tab.key}
-                value={tab.key}
-                className="rounded-lg px-3 py-1.5 text-xs font-semibold data-[selected]:bg-[#0f172a] data-[selected]:text-white data-[selected]:shadow-sm"
-              >
-                {tab.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-
-        {displayed.length === 0 ? (
-          <div className="py-12 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-50">
-              <Package className="h-8 w-8 text-slate-200" />
-            </div>
-            <p className="text-sm font-medium text-slate-500">
-              {activeTab ? "Aucune location avec ce statut" : "Aucune location pour le moment"}
-            </p>
-            {!activeTab && (
-              <Link href="/catalogue" className="mt-4 inline-block">
-                <Button className="rounded-xl bg-[#ff6700] text-white hover:bg-[#e55f00] text-sm">
-                  Parcourir le catalogue
-                </Button>
-              </Link>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {displayed.map((loc) => (
-              <LocationItem key={loc._id} loc={loc} />
-            ))}
-          </div>
-        )}
-      </motion.div>
+      </section>
     </div>
   );
 }

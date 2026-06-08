@@ -1,4 +1,4 @@
-export type Category = {
+﻿export type Category = {
   _id: string;
   nom: string;
   description?: string;
@@ -73,6 +73,39 @@ export async function getCategories(): Promise<Category[]> {
   return result.data;
 }
 
+export async function createCategory(data: { nom: string; description?: string; image?: string }): Promise<Category> {
+  const response = await fetch(`${API_BASE_URL}/categories`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+    body: JSON.stringify(data),
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur");
+  return body.data;
+}
+
+export async function updateCategory(id: string, data: { nom?: string; description?: string; image?: string }): Promise<Category> {
+  const response = await fetch(`${API_BASE_URL}/categories/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+    body: JSON.stringify(data),
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur");
+  return body.data;
+}
+
+export async function deleteCategory(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/categories/${id}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  if (!response.ok) {
+    const body = await response.json();
+    throw new Error(body.message ?? "Erreur");
+  }
+}
+
 // ── Materiels ─────────────────────────────────────────────
 export async function getFeaturedMateriels(limit = 4): Promise<Materiel[]> {
   const result = await fetchJson<{ data: Materiel[] }>(
@@ -85,6 +118,9 @@ export type MaterielFilters = {
   q?: string;
   categorie?: string;
   ville?: string;
+  rayon?: number;
+  lat?: number;
+  lng?: number;
   prixMin?: number;
   prixMax?: number;
   disponibilite?: "disponible" | "reservation";
@@ -98,6 +134,9 @@ export async function getMateriels(filters: MaterielFilters = {}): Promise<Mater
   if (filters.q) params.set("q", filters.q);
   if (filters.categorie) params.set("categorie", filters.categorie);
   if (filters.ville) params.set("ville", filters.ville);
+  if (filters.rayon !== undefined) params.set("rayon", String(filters.rayon));
+  if (filters.lat !== undefined) params.set("lat", String(filters.lat));
+  if (filters.lng !== undefined) params.set("lng", String(filters.lng));
   if (filters.prixMin !== undefined) params.set("prixMin", String(filters.prixMin));
   if (filters.prixMax !== undefined) params.set("prixMax", String(filters.prixMax));
   if (filters.disponibilite) params.set("disponibilite", filters.disponibilite);
@@ -199,6 +238,9 @@ export type Location = {
   prixParJour: number;
   montantLocation: number;
   cautionMontant: number;
+  montantNetProprio?: number;
+  commissionTaux?: number;
+  commissionMontant?: number;
   createdAt: string;
 };
 
@@ -264,6 +306,46 @@ export async function getOwnerLocations(filters?: {
   return body;
 }
 
+export async function acceptLocation(id: string): Promise<Location> {
+  const response = await fetch(`${API_BASE_URL}/locations/${id}/accept`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur");
+  return body.data;
+}
+
+export async function rejectLocation(id: string): Promise<Location> {
+  const response = await fetch(`${API_BASE_URL}/locations/${id}/reject`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur");
+  return body.data;
+}
+
+export async function startLocation(id: string): Promise<Location> {
+  const response = await fetch(`${API_BASE_URL}/locations/${id}/start`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur");
+  return body.data;
+}
+
+export async function returnMateriel(id: string): Promise<Location> {
+  const response = await fetch(`${API_BASE_URL}/locations/${id}/return`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur");
+  return body.data;
+}
+
 export async function cancelLocation(id: string): Promise<Location> {
   const response = await fetch(`${API_BASE_URL}/locations/${id}`, {
     method: "DELETE",
@@ -319,6 +401,56 @@ export async function updateMyProfile(data: {
   return body.data;
 }
 
+export async function changePassword(data: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/users/me/password`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${getToken()}`,
+    },
+    body: JSON.stringify(data),
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur");
+}
+
+export async function forgotPassword(email: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur");
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, newPassword }),
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur");
+}
+
+export async function getOwnerStats(): Promise<{
+  totalMateriels: number;
+  disponibiles: number;
+  locations: { enAttente: number; acceptees: number; enCours: number; terminees: number; total: number };
+  revenus: number;
+}> {
+  const response = await fetch(`${API_BASE_URL}/users/stats/owner`, {
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur");
+  return body.data;
+}
+
 export async function getLocataireStats(): Promise<{
   locations: { enAttente: number; enCours: number; terminees: number; total: number };
   totalDepenses: number;
@@ -331,10 +463,235 @@ export async function getLocataireStats(): Promise<{
   return body.data;
 }
 
+// ── Upload ───────────────────────────────────────────────────
+export async function uploadMaterielImage(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append("photo", file);
+  const response = await fetch(`${API_BASE_URL}/upload/materiel`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${getToken()}` },
+    body: formData,
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur upload");
+  return body.url as string;
+}
+
+// ── Materiels (authenticated) ───────────────────────────────
+export async function createMateriel(data: {
+  nom: string;
+  description?: string;
+  photos?: { url: string }[];
+  prixParJour: number;
+  caution?: number;
+  localisation?: string;
+  etat?: "neuf" | "bon_etat" | "usage";
+  categorieId: string;
+}): Promise<Materiel> {
+  const response = await fetch(`${API_BASE_URL}/materiels`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${getToken()}`,
+    },
+    body: JSON.stringify(data),
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur");
+  return body.data;
+}
+
+export async function getMyMateriels(filters?: {
+  page?: number;
+  limit?: number;
+}): Promise<MaterielListResult> {
+  const params = new URLSearchParams();
+  if (filters?.page) params.set("page", String(filters.page));
+  if (filters?.limit) params.set("limit", String(filters.limit));
+
+  const response = await fetch(`${API_BASE_URL}/materiels/mine?${params}`, {
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur");
+  return body;
+}
+
+export async function updateMateriel(id: string, data: Partial<Materiel>): Promise<Materiel> {
+  const response = await fetch(`${API_BASE_URL}/materiels/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${getToken()}`,
+    },
+    body: JSON.stringify(data),
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur");
+  return body.data;
+}
+
+export async function deleteMateriel(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/materiels/${id}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  if (!response.ok) {
+    const body = await response.json();
+    throw new Error(body.message ?? "Erreur");
+  }
+}
+
+// ── Conversations / Messages ───────────────────────────────
+export type ConvUser = { _id: string; nom: string; photo?: string };
+export type ConvMateriel = { _id: string; nom: string; photos?: { url: string }[] };
+
+export type ChatMessage = {
+  _id: string;
+  conversationId: string;
+  expediteurId: ConvUser;
+  contenu: string;
+  imageUrl?: string | null;
+  lu: boolean;
+  createdAt: string;
+};
+
+export type Conversation = {
+  _id: string;
+  materielId: ConvMateriel;
+  locataireId: ConvUser;
+  proprietaireId: ConvUser;
+  dernierMsgAt: string;
+  unreadCount: number;
+  lastMessage?: ChatMessage;
+};
+
+export async function getOrCreateConversation(materielId: string): Promise<Conversation> {
+  const response = await fetch(`${API_BASE_URL}/conversations`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${getToken()}`,
+    },
+    body: JSON.stringify({ materielId }),
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur");
+  return body.data;
+}
+
+export async function getMyConversations(): Promise<Conversation[]> {
+  const response = await fetch(`${API_BASE_URL}/conversations`, {
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur");
+  return body.data;
+}
+
+export async function getConversationMessages(conversationId: string): Promise<ChatMessage[]> {
+  const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}/messages`, {
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur");
+  return body.data;
+}
+
 // ── Helpers ───────────────────────────────────────────────
 function getToken(): string {
   if (typeof window === "undefined") return "";
-  return localStorage.getItem("kreli_token") ?? "";
+  return localStorage.getItem("Kreli_token") ?? "";
+}
+
+// ── Notifications ─────────────────────────────────────────────────────────────
+export type AppNotification = {
+  _id: string;
+  type: "reservation" | "paiement" | "message" | "litige" | "retard" | "compte" | "materiel";
+  titre: string;
+  contenu: string;
+  lu: boolean;
+  lienRedirection: string;
+  createdAt: string;
+};
+
+export type NotificationListResult = {
+  data: AppNotification[];
+  unreadCount: number;
+};
+
+export async function getNotifications(page = 1): Promise<NotificationListResult> {
+  const response = await fetch(`${API_BASE_URL}/notifications?page=${page}&limit=20`, {
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur");
+  return body;
+}
+
+export async function markNotificationRead(id: string): Promise<AppNotification> {
+  const response = await fetch(`${API_BASE_URL}/notifications/${id}/read`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur");
+  return body.data;
+}
+
+export async function updateUserStatus(id: string, statut: "actif" | "suspendu" | "bloque"): Promise<AuthUser> {
+  const response = await fetch(`${API_BASE_URL}/users/${id}/status`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+    body: JSON.stringify({ statut }),
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur");
+  return body.data;
+}
+
+export async function getAdminStats(): Promise<{
+  totalUsers: number;
+  totalMateriels: number;
+  totalLocations: number;
+  locationsActives: number;
+  totalRevenus: number;
+}> {
+  const response = await fetch(`${API_BASE_URL}/users/stats/admin`, {
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur");
+  return body.data;
+}
+
+export async function getAdminAllLocations(filters?: {
+  statut?: string;
+  page?: number;
+  limit?: number;
+}): Promise<LocationListResult> {
+  const params = new URLSearchParams();
+  if (filters?.statut) params.set("statut", filters.statut);
+  if (filters?.page) params.set("page", String(filters.page));
+  if (filters?.limit) params.set("limit", String(filters.limit ?? 20));
+
+  const response = await fetch(`${API_BASE_URL}/locations/admin/all?${params}`, {
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur");
+  return body;
+}
+
+export async function markAllNotificationsRead(): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/notifications/read-all`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  if (!response.ok) {
+    const body = await response.json();
+    throw new Error(body.message ?? "Erreur");
+  }
 }
 
 export function getStatutLabel(statut: string) {
@@ -349,6 +706,241 @@ export function getStatutLabel(statut: string) {
     annulee: "Annulée",
   };
   return labels[statut] ?? statut;
+}
+
+// ── Admin: Paiements ──────────────────────────────────────────────────────────
+export type Paiement = {
+  _id: string;
+  locationId: {
+    _id: string;
+    materielId: { _id: string; nom: string };
+    locataireId: { _id: string; nom: string; email: string };
+    montantLocation: number;
+    statut: string;
+    dateDebut: string;
+    dateFinPrevue: string;
+  };
+  type: "location" | "caution" | "remboursement" | "remboursement_partiel" | "penalite" | "annulation";
+  montant: number;
+  statut: "en_attente" | "paye" | "rembourse" | "partiellement_rembourse" | "retenu" | "annule";
+  note: string;
+  createdAt: string;
+};
+
+export type PaiementListResult = {
+  data: Paiement[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+};
+
+export async function getAdminAllPaiements(filters?: {
+  statut?: string;
+  type?: string;
+  page?: number;
+  limit?: number;
+}): Promise<PaiementListResult> {
+  const params = new URLSearchParams();
+  if (filters?.statut) params.set("statut", filters.statut);
+  if (filters?.type) params.set("type", filters.type);
+  if (filters?.page) params.set("page", String(filters.page));
+  if (filters?.limit) params.set("limit", String(filters.limit ?? 20));
+  const response = await fetch(`${API_BASE_URL}/paiements?${params}`, {
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur");
+  return body;
+}
+
+export async function updateAdminPaiement(id: string, data: { statut?: string; note?: string }): Promise<Paiement> {
+  const response = await fetch(`${API_BASE_URL}/paiements/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+    body: JSON.stringify(data),
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur");
+  return body.data;
+}
+
+export async function getAdminPaiementsStats(): Promise<{
+  total: number;
+  enAttente: number;
+  payes: number;
+  rembourses: number;
+  totalRevenus: number;
+}> {
+  const response = await fetch(`${API_BASE_URL}/paiements/stats`, {
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur");
+  return body.data;
+}
+
+// ── Admin: Litiges ────────────────────────────────────────────────────────────
+export type Litige = {
+  _id: string;
+  locationId: {
+    _id: string;
+    materielId: { _id: string; nom: string };
+    locataireId: { _id: string; nom: string; email: string };
+    montantLocation: number;
+    statut: string;
+    dateDebut: string;
+    dateFinPrevue: string;
+  };
+  ouvertPar: { _id: string; nom: string; email: string; photo?: string };
+  adminId?: { _id: string; nom: string } | null;
+  description: string;
+  statut: "ouvert" | "en_cours" | "cloture";
+  preuves: { soumisParId: string; type: "photo" | "texte"; contenu: string; createdAt: string }[];
+  decisionAdmin: string;
+  openedAt: string;
+  closedAt?: string | null;
+};
+
+export type LitigeListResult = {
+  data: Litige[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+};
+
+export async function getAdminAllLitiges(filters?: {
+  statut?: string;
+  page?: number;
+  limit?: number;
+}): Promise<LitigeListResult> {
+  const params = new URLSearchParams();
+  if (filters?.statut) params.set("statut", filters.statut);
+  if (filters?.page) params.set("page", String(filters.page));
+  if (filters?.limit) params.set("limit", String(filters.limit ?? 20));
+  const response = await fetch(`${API_BASE_URL}/litiges?${params}`, {
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur");
+  return body;
+}
+
+export async function updateAdminLitige(id: string, data: { statut?: string; decisionAdmin?: string }): Promise<Litige> {
+  const response = await fetch(`${API_BASE_URL}/litiges/${id}/status`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+    body: JSON.stringify(data),
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur");
+  return body.data;
+}
+
+export async function getAdminLitigesStats(): Promise<{
+  total: number;
+  ouverts: number;
+  enCours: number;
+  clotures: number;
+}> {
+  const response = await fetch(`${API_BASE_URL}/litiges/stats`, {
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur");
+  return body.data;
+}
+
+// ── Admin: All users ──────────────────────────────────────────────────────────
+export async function getAdminAllUsers(filters?: {
+  role?: string;
+  statut?: string;
+  q?: string;
+  page?: number;
+  limit?: number;
+}): Promise<{ data: AuthUser[]; total: number; page: number; pages: number }> {
+  const params = new URLSearchParams();
+  if (filters?.role) params.set("role", filters.role);
+  if (filters?.statut) params.set("statut", filters.statut);
+  if (filters?.q) params.set("q", filters.q);
+  if (filters?.page) params.set("page", String(filters.page));
+  if (filters?.limit) params.set("limit", String(filters.limit ?? 20));
+  const response = await fetch(`${API_BASE_URL}/users?${params}`, {
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur");
+  return body;
+}
+
+// ── Admin: toggle materiel featured ──────────────────────────────────────────
+export async function adminToggleFeatured(id: string, featured: boolean): Promise<Materiel> {
+  const response = await fetch(`${API_BASE_URL}/materiels/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+    body: JSON.stringify({ featured }),
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur");
+  return body.data;
+}
+
+// ── Favoris ───────────────────────────────────────────────────────────────────
+export async function getMyFavoris(): Promise<Materiel[]> {
+  const response = await fetch(`${API_BASE_URL}/users/me/favoris`, {
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur");
+  return body.data;
+}
+
+export async function toggleFavori(materielId: string): Promise<{ added: boolean; data: string[] }> {
+  const response = await fetch(`${API_BASE_URL}/users/me/favoris/${materielId}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur");
+  return body;
+}
+
+// ── User Litiges ──────────────────────────────────────────────────────────────
+export type UserLitige = {
+  _id: string;
+  locationId: {
+    _id: string;
+    materielId: { _id: string; nom: string; photos: { url: string }[] };
+    dateDebut: string;
+    statut: string;
+    montantLocation: number;
+  };
+  description: string;
+  statut: "ouvert" | "en_cours" | "cloture";
+  decisionAdmin: string;
+  openedAt: string;
+  closedAt: string | null;
+};
+
+export async function getMyLitiges(page = 1): Promise<{ data: UserLitige[]; total: number; pages: number }> {
+  const response = await fetch(`${API_BASE_URL}/litiges/my?page=${page}`, {
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur");
+  return body;
+}
+
+export async function createLitige(locationId: string, description: string): Promise<UserLitige> {
+  const response = await fetch(`${API_BASE_URL}/litiges`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+    body: JSON.stringify({ locationId, description }),
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? "Erreur");
+  return body.data;
 }
 
 export function getStatutColor(statut: string) {
