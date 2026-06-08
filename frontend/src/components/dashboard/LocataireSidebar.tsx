@@ -1,42 +1,45 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { cn } from "@/lib/utils";
 import {
-  LayoutDashboard,
+  LayoutGrid,
   Package,
+  CreditCard,
   MessageSquare,
   User,
   LogOut,
-  ChevronRight,
   Building2,
   X,
-  ChevronsUpDown,
+  Search,
+  Home,
+  Heart,
 } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-const NAV_ITEMS = [
-  { href: "/dashboard/locataire", label: "Vue d'ensemble", icon: LayoutDashboard, exact: true },
-  { href: "/dashboard/locataire/locations", label: "Mes Locations", icon: Package },
-  { href: "/dashboard/messages", label: "Messages", icon: MessageSquare },
-  { href: "/dashboard/locataire/profile", label: "Profil", icon: User },
+type NavItem = {
+  href: string;
+  label: string;
+  icon: typeof Package;
+  exact?: boolean;
+  badgeKey?: "messages";
+};
+
+const PRIMARY_NAV: NavItem[] = [
+  { href: "/dashboard/locataire", label: "Dashboard", icon: LayoutGrid, exact: true },
+  { href: "/dashboard/locataire/locations", label: "Mes locations", icon: Package },
+  { href: "/dashboard/locataire/paiements", label: "Paiements", icon: CreditCard },
+  { href: "/dashboard/locataire/messages", label: "Messages", icon: MessageSquare, badgeKey: "messages" },
+  { href: "/dashboard/locataire/favoris", label: "Favoris", icon: Heart },
+  { href: "/dashboard/locataire/profile", label: "Mon profil", icon: User },
 ];
 
 interface Props {
   onClose?: () => void;
+  unreadMessages?: number;
 }
 
-export default function LocataireSidebar({ onClose }: Props) {
+export default function LocataireSidebar({ onClose, unreadMessages = 0 }: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
@@ -44,11 +47,6 @@ export default function LocataireSidebar({ onClose }: Props) {
   function handleLogout() {
     logout();
     router.push("/");
-  }
-
-  function navigate(href: string) {
-    onClose?.();
-    router.push(href);
   }
 
   function isActive(href: string, exact?: boolean) {
@@ -61,115 +59,235 @@ export default function LocataireSidebar({ onClose }: Props) {
     : "U";
 
   return (
-    <div className="flex h-full flex-col bg-[#0f172a]">
-      {/* Logo */}
-      <div className="flex items-center justify-between border-b border-white/10 px-5 py-5">
-        <Link href="/" className="flex items-center" onClick={onClose}>
-          <span className="text-2xl font-black text-white">Kre</span>
-          <span className="text-2xl font-black text-[#ff6700]">li</span>
+    <aside
+      className="flex h-full flex-col"
+      style={{
+        background: "var(--lm-bone)",
+        borderRight: "1px solid var(--lm-line)",
+      }}
+    >
+      {/* Brand */}
+      <div className="flex items-center justify-between px-6 pt-7 pb-6">
+        <Link href="/" onClick={onClose} className="flex items-center gap-2.5">
+          <span
+            className="grid h-7 w-7 place-items-center rounded-[7px] text-[14px] font-black"
+            style={{
+              background: "var(--lm-ink)",
+              color: "var(--lm-paper)",
+              fontFamily: "var(--lm-f-display)",
+              letterSpacing: "-0.05em",
+            }}
+          >
+            M
+          </span>
+          <span
+            className="text-[18px] font-extrabold"
+            style={{
+              fontFamily: "var(--lm-f-display)",
+              letterSpacing: "-0.045em",
+              color: "var(--lm-ink)",
+            }}
+          >
+            Kreli<span style={{ color: "var(--lm-signal)" }}>.</span>
+          </span>
         </Link>
         {onClose && (
           <button
             onClick={onClose}
-            className="rounded-lg p-1 text-white/40 transition-colors hover:bg-white/10 hover:text-white"
+            className="grid h-7 w-7 place-items-center rounded-lg transition-colors hover:bg-black/5"
+            style={{ color: "var(--lm-mid)" }}
+            aria-label="Fermer"
           >
             <X className="h-4 w-4" />
           </button>
         )}
       </div>
 
-      {/* Role badge */}
-      <div className="px-5 pb-2 pt-4">
-        <div className="inline-flex items-center gap-2 rounded-full bg-[#ff6700]/15 px-3 py-1.5">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#ff6700]" />
-          <span className="text-xs font-semibold text-[#ff6700]">Espace Locataire</span>
-        </div>
-      </div>
+      {/* Section label */}
+      <p
+        className="lm-eyebrow px-6 pb-3"
+        style={{ color: "var(--lm-muted)" }}
+      >
+        Menu
+      </p>
 
-      {/* Nav */}
-      <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-0.5">
-        {NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
+      {/* Primary nav */}
+      <nav className="flex flex-col gap-0.5 px-3">
+        {PRIMARY_NAV.map(({ href, label, icon: Icon, exact, badgeKey }) => {
           const active = isActive(href, exact);
+          const showMsgBadge = badgeKey === "messages" && unreadMessages > 0;
           return (
-            <Tooltip key={href}>
-              <TooltipTrigger
-                render={
-                  <Link
-                    href={href}
-                    onClick={onClose}
-                    className={cn(
-                      "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150",
-                      active
-                        ? "bg-[#ff6700] text-white shadow-[0_4px_14px_rgba(255,103,0,0.3)]"
-                        : "text-slate-400 hover:bg-white/5 hover:text-white"
-                    )}
-                  />
-                }
-              >
-                <Icon className="h-5 w-5 shrink-0" />
-                <span className="flex-1">{label}</span>
-                {active && <ChevronRight className="h-4 w-4 opacity-60" />}
-              </TooltipTrigger>
-              <TooltipContent side="right">{label}</TooltipContent>
-            </Tooltip>
+            <Link
+              key={href}
+              href={href}
+              onClick={onClose}
+              className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-[14px] font-medium transition-colors"
+              style={
+                active
+                  ? {
+                      background: "var(--lm-ink)",
+                      color: "var(--lm-paper)",
+                    }
+                  : {
+                      color: "var(--lm-char)",
+                    }
+              }
+              onMouseEnter={(e) => {
+                if (!active) e.currentTarget.style.background = "var(--lm-hover)";
+              }}
+              onMouseLeave={(e) => {
+                if (!active) e.currentTarget.style.background = "transparent";
+              }}
+            >
+              <Icon className="h-[17px] w-[17px] shrink-0" strokeWidth={1.75} />
+              <span className="flex-1 truncate">{label}</span>
+              {showMsgBadge && (
+                <span
+                  className="lm-mono grid min-w-[20px] place-items-center rounded-full px-1.5"
+                  style={{
+                    height: 20,
+                    background: active ? "var(--lm-signal)" : "var(--lm-ink)",
+                    color: "var(--lm-paper)",
+                    fontSize: 11,
+                    fontWeight: 600,
+                  }}
+                >
+                  {unreadMessages}
+                </span>
+              )}
+            </Link>
           );
         })}
 
         {canSwitchToProprio && (
-          <>
-            <div className="my-2 mx-1 border-t border-white/10" />
-            <p className="px-3 pb-1 text-[10px] font-bold uppercase tracking-widest text-slate-600">
-              Autre espace
-            </p>
-            <Link
-              href="/dashboard/proprietaire"
-              onClick={onClose}
-              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-400 hover:bg-white/5 hover:text-white transition-all"
-            >
-              <Building2 className="h-5 w-5 shrink-0" />
-              Propriétaire
-            </Link>
-          </>
+          <Link
+            href="/dashboard/proprietaire"
+            onClick={onClose}
+            className="mt-1 flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-[14px] font-medium transition-colors"
+            style={{ color: "var(--lm-char)" }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "var(--lm-hover)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+            }}
+          >
+            <Building2 className="h-[17px] w-[17px] shrink-0" strokeWidth={1.75} />
+            <span className="flex-1 truncate">Espace Propriétaire</span>
+          </Link>
         )}
       </nav>
 
-      {/* User footer with dropdown */}
-      <div className="border-t border-white/10 p-3">
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            className="flex w-full items-center gap-3 rounded-xl bg-white/5 p-3 text-left hover:bg-white/10 transition-colors focus:outline-none"
+      {/* Shortcuts */}
+      <p
+        className="lm-eyebrow mt-7 px-6 pb-3"
+        style={{ color: "var(--lm-muted)" }}
+      >
+        Raccourcis
+      </p>
+      <nav className="flex flex-col gap-0.5 px-3">
+        <Link
+          href="/catalogue"
+          onClick={onClose}
+          className="flex items-center gap-3 rounded-xl px-3.5 py-2 text-[13.5px] font-medium transition-colors"
+          style={{ color: "var(--lm-mid)" }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "var(--lm-hover)";
+            e.currentTarget.style.color = "var(--lm-ink)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent";
+            e.currentTarget.style.color = "var(--lm-mid)";
+          }}
+        >
+          <Search className="h-[16px] w-[16px] shrink-0" strokeWidth={1.75} />
+          Chercher un matériel
+        </Link>
+        <Link
+          href="/"
+          onClick={onClose}
+          className="flex items-center gap-3 rounded-xl px-3.5 py-2 text-[13.5px] font-medium transition-colors"
+          style={{ color: "var(--lm-mid)" }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "var(--lm-hover)";
+            e.currentTarget.style.color = "var(--lm-ink)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent";
+            e.currentTarget.style.color = "var(--lm-mid)";
+          }}
+        >
+          <Home className="h-[16px] w-[16px] shrink-0" strokeWidth={1.75} />
+          Page d&apos;accueil
+        </Link>
+      </nav>
+
+      <div className="flex-1" />
+
+      {/* User card */}
+      <div className="px-3 pb-3">
+        <div
+          className="flex items-center gap-3 rounded-2xl p-3"
+          style={{
+            background: "var(--lm-paper)",
+            border: "1px solid var(--lm-line)",
+          }}
+        >
+          <div
+            className="relative grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full text-[13px] font-extrabold"
+            style={{
+              background: "var(--lm-signal)",
+              color: "var(--lm-paper)",
+              fontFamily: "var(--lm-f-display)",
+              letterSpacing: "-0.02em",
+            }}
           >
-            <Avatar className="h-8 w-8 shrink-0">
-              {user?.photo && <AvatarImage src={user.photo} alt={user.nom} />}
-              <AvatarFallback className="bg-[#004e98] text-xs font-bold text-white">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-white">{user?.nom}</p>
-              <p className="truncate text-xs text-slate-500">{user?.email}</p>
-            </div>
-            <ChevronsUpDown className="h-4 w-4 shrink-0 text-slate-500" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent side="top" align="start" className="w-56">
-            <DropdownMenuItem onClick={() => navigate("/dashboard/locataire/profile")}>
-              <User className="mr-2 h-4 w-4" />
-              Mon profil
-            </DropdownMenuItem>
-            {canSwitchToProprio && (
-              <DropdownMenuItem onClick={() => navigate("/dashboard/proprietaire")}>
-                <Building2 className="mr-2 h-4 w-4" />
-                Espace Propriétaire
-              </DropdownMenuItem>
+            {user?.photo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={user.photo} alt={user.nom} className="h-10 w-10 object-cover" />
+            ) : (
+              initials
             )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout} variant="destructive">
-              <LogOut className="mr-2 h-4 w-4" />
-              Déconnexion
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            <span
+              className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2"
+              style={{
+                background: "#1A6B3F",
+                boxShadow: "0 0 0 2px var(--lm-paper)",
+              }}
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p
+              className="truncate text-[13.5px] font-bold"
+              style={{ color: "var(--lm-ink)", letterSpacing: "-0.01em" }}
+            >
+              {user?.nom}
+            </p>
+            <p
+              className="lm-mono mt-0.5 truncate text-[10.5px]"
+              style={{ color: "var(--lm-mid)" }}
+            >
+              LOCATAIRE
+            </p>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg transition-colors"
+            style={{ color: "var(--lm-mid)" }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(176,36,26,0.08)";
+              e.currentTarget.style.color = "#B0241A";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+              e.currentTarget.style.color = "var(--lm-mid)";
+            }}
+            aria-label="Se déconnecter"
+          >
+            <LogOut className="h-[15px] w-[15px]" strokeWidth={1.75} />
+          </button>
+        </div>
       </div>
-    </div>
+    </aside>
   );
 }

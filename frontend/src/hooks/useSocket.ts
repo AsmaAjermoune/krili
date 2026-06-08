@@ -6,10 +6,17 @@ import { io, Socket } from "socket.io-client";
 const SOCKET_URL =
   process.env.NEXT_PUBLIC_API_URL?.replace("/api/v1", "") ?? "http://localhost:5000";
 
+// Module-level singleton — one connection per browser session
 let _socket: Socket | null = null;
+let _token: string | null = null;
 
 export function getSocket(token: string): Socket {
-  if (!_socket) {
+  if (!_socket || _token !== token) {
+    if (_socket) {
+      _socket.disconnect();
+      _socket = null;
+    }
+    _token = token;
     _socket = io(SOCKET_URL, {
       auth: { token },
       autoConnect: true,

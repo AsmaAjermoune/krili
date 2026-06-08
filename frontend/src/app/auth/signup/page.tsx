@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { registerUser } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
+import { requestAndSaveLocation } from "@/lib/userLocation";
 
 type Role = "proprietaire" | "locataire" | "both";
 
@@ -90,8 +91,13 @@ export default function SignupPage() {
         adresse,
         photo: photo || undefined,
       });
+      // Request location in background — fires browser permission prompt,
+      // saves to localStorage if granted, never blocks the redirect.
+      requestAndSaveLocation();
       login(token, user);
-      router.push("/");
+      if (user.role === "admin") router.push("/dashboard/admin");
+      else if (user.role === "proprietaire") router.push("/dashboard/proprietaire");
+      else router.push("/dashboard/locataire");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur d'inscription");
     } finally {
@@ -99,16 +105,16 @@ export default function SignupPage() {
     }
   }
 
-  const inputClass = "w-full rounded-xl border border-[#e2e8f0] bg-[#f8fafc] py-3 pl-9 pr-4 text-sm text-[#0f172a] outline-none placeholder:text-[#94a3b8] transition focus:border-[#004e98]";
+  const inputClass = "w-full rounded-xl border border-[#e2e8f0] dark:border-slate-600 bg-[#f8fafc] dark:bg-slate-700 py-3 pl-9 pr-4 text-sm text-[#0f172a] dark:text-slate-100 outline-none placeholder:text-[#94a3b8] dark:placeholder:text-slate-500 transition focus:border-[#004e98] dark:focus:border-blue-500";
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#ebebeb" }}>
+    <div className="min-h-screen flex flex-col dark:bg-slate-900" style={{ backgroundColor: "#ebebeb" }}>
       {/* Simple Navbar */}
-      <header className="bg-white shadow-sm">
+      <header className="bg-white dark:bg-slate-800 shadow-sm">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
           <Link href="/" className="flex items-center">
-            <span className="text-xl font-black text-primary">Kre</span>
-            <span className="text-xl font-black text-brand">li</span>
+            <span className="text-xl font-black text-primary">Loca</span>
+            <span className="text-xl font-black text-brand">Mat</span>
           </Link>
           <Link href="/catalogue" className="text-sm text-muted hover:text-ink transition-colors">
             Catalogue
@@ -118,10 +124,10 @@ export default function SignupPage() {
 
       {/* Form card */}
       <div className="flex flex-1 items-start justify-center px-4 py-10">
-        <div className="w-full max-w-lg rounded-2xl bg-white p-8 shadow-sm">
+        <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-slate-800 p-8 shadow-sm">
           <div className="text-center mb-7">
-            <h1 className="font-display text-2xl font-black text-ink">Rejoignez Kreli</h1>
-            <p className="mt-1.5 text-sm text-muted">
+            <h1 className="font-display text-2xl font-black text-ink dark:text-white">Rejoignez Kreli</h1>
+            <p className="mt-1.5 text-sm text-muted dark:text-slate-400">
               Louez du matériel professionnel en toute simplicité
             </p>
           </div>
@@ -135,10 +141,10 @@ export default function SignupPage() {
 
             {/* Photo upload */}
             <div>
-              <p className="mb-2 text-sm font-bold text-[#0f172a]">Photo de profil</p>
+              <p className="mb-2 text-sm font-bold text-[#0f172a] dark:text-slate-200">Photo de profil</p>
               <div className="flex items-center gap-4">
                 {photoPreview ? (
-                  <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border-2 border-[#e2e8f0]">
+                  <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border-2 border-[#e2e8f0] dark:border-slate-600">
                     <img src={photoPreview} alt="Preview" className="h-full w-full object-cover" />
                     <button
                       type="button"
@@ -152,7 +158,7 @@ export default function SignupPage() {
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-dashed border-[#e2e8f0] text-[#94a3b8] hover:border-[#004e98] hover:text-[#004e98]"
+                    className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-dashed border-[#e2e8f0] dark:border-slate-600 text-[#94a3b8] dark:text-slate-500 hover:border-[#004e98] hover:text-[#004e98]"
                   >
                     <Camera className="h-8 w-8" />
                   </button>
@@ -164,13 +170,13 @@ export default function SignupPage() {
                   onChange={handlePhotoChange}
                   className="hidden"
                 />
-                <span className="text-sm text-[#64748b]">Cliquez pour ajouter une photo</span>
+                <span className="text-sm text-[#64748b] dark:text-slate-400">Cliquez pour ajouter une photo</span>
               </div>
             </div>
 
             {/* Role selection */}
             <div>
-              <p className="mb-2 text-sm font-bold text-ink">Je souhaite être</p>
+              <p className="mb-2 text-sm font-bold text-ink dark:text-slate-200">Je souhaite être</p>
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
@@ -222,16 +228,16 @@ export default function SignupPage() {
             {/* Fields – row 1 */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1.5 block text-sm font-semibold text-ink">Nom complet</label>
+                <label className="mb-1.5 block text-sm font-semibold text-ink dark:text-slate-300">Nom complet</label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted dark:text-slate-500" />
                   <input type="text" required value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Meriem Abdou" className={inputClass} />
                 </div>
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-semibold text-ink">Téléphone</label>
+                <label className="mb-1.5 block text-sm font-semibold text-ink dark:text-slate-300">Téléphone</label>
                 <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted dark:text-slate-500" />
                   <input type="tel" value={telephone} onChange={(e) => setTelephone(e.target.value)} placeholder="06 12 34 56 78" className={inputClass} />
                 </div>
               </div>
@@ -239,18 +245,18 @@ export default function SignupPage() {
 
             {/* Email */}
             <div>
-              <label className="mb-1.5 block text-sm font-semibold text-ink">Email</label>
+              <label className="mb-1.5 block text-sm font-semibold text-ink dark:text-slate-300">Email</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted dark:text-slate-500" />
                 <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="mail@exemple.ma" className={inputClass} />
               </div>
             </div>
 
             {/* Address */}
             <div>
-              <label className="mb-1.5 block text-sm font-semibold text-ink">Adresse de résidence</label>
+              <label className="mb-1.5 block text-sm font-semibold text-ink dark:text-slate-300">Adresse de résidence</label>
               <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted dark:text-slate-500" />
                 <input type="text" value={adresse} onChange={(e) => setAdresse(e.target.value)} placeholder="10 rue de la Mosquée" className={inputClass} />
               </div>
             </div>
@@ -258,28 +264,28 @@ export default function SignupPage() {
             {/* Passwords row */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1.5 block text-sm font-semibold text-ink">Mot de passe</label>
+                <label className="mb-1.5 block text-sm font-semibold text-ink dark:text-slate-300">Mot de passe</label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted dark:text-slate-500" />
                   <input type={showPassword ? "text" : "password"} required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className={inputClass} />
                 </div>
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-semibold text-ink">Confirmer</label>
+                <label className="mb-1.5 block text-sm font-semibold text-ink dark:text-slate-300">Confirmer</label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted dark:text-slate-500" />
                   <input
                     type={showPassword ? "text" : "password"}
                     required
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full rounded-xl border border-[#e2e8f0] bg-[#f8fafc] py-3 pl-9 pr-9 text-sm text-ink outline-none placeholder:text-muted-light transition"
+                    className="w-full rounded-xl border border-[#e2e8f0] dark:border-slate-600 bg-[#f8fafc] dark:bg-slate-700 py-3 pl-9 pr-9 text-sm text-ink dark:text-slate-100 outline-none placeholder:text-muted-light dark:placeholder:text-slate-500 transition"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-ink"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted dark:text-slate-500 hover:text-ink dark:hover:text-slate-300"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -298,7 +304,7 @@ export default function SignupPage() {
             </button>
           </form>
 
-          <p className="mt-5 text-center text-sm text-muted">
+          <p className="mt-5 text-center text-sm text-muted dark:text-slate-400">
             Vous avez déjà un compte ?{" "}
             <Link href="/auth/login" className="font-bold text-brand hover:text-brand-dark">
               Se connecter
@@ -307,7 +313,7 @@ export default function SignupPage() {
         </div>
       </div>
 
-      <div className="py-4 text-center text-xs text-muted">
+      <div className="py-4 text-center text-xs text-muted dark:text-slate-500">
         © 2024 Kreli. Tous droits réservés.
       </div>
     </div>
